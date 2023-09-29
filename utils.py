@@ -107,11 +107,11 @@ def concatenated_forward(
         chosen_logps, rejected_logps = all_logps.chunk(2, dim=0)
         return chosen_logps, rejected_logps
 
-def forward_batch(model, batch, device, loss="dpo", train=True):
+def forward_batch(model, batch, device, loss_fn="dpo", train=True):
     metrics = {}
     train_test = 'train' if train else 'eval'
 
-    if loss == "dpo":
+    if loss_fn == "dpo":
         # turn on LoRA to get the reference model activations
         model.enable_adapters()
         policy_chosen_logps, policy_rejected_logps = concatenated_forward(model, batch, device)
@@ -137,7 +137,7 @@ def forward_batch(model, batch, device, loss="dpo", train=True):
         return losses.mean(), metrics
     
     # finetune only on the 'chosen' responses
-    elif loss == "sft":
+    elif loss_fn == "sft":
         model.enable_adapters()
         loss = model(
             input_ids=batch['chosen_input_ids'].to(device),
@@ -149,7 +149,7 @@ def forward_batch(model, batch, device, loss="dpo", train=True):
         return loss, metrics
     
     else:
-        raise ValueError(f"Unknown loss function: {loss}")
+        raise ValueError(f"Unknown loss function: {loss_fn}")
 
 
 class TemporarilySeededRandom:
