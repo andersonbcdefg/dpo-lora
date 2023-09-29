@@ -125,13 +125,13 @@ def forward_batch(model, batch, device, train=True):
     reward_accuracies = (chosen_rewards > rejected_rewards).float()
 
     # i removed all_gather_if_needed from all of these. will have to add back if doing FSDP/etc.
-    # metrics[f'rewards_{train_test}/chosen'] = chosen_rewards.detach().cpu().numpy().tolist()
-    # metrics[f'rewards_{train_test}/rejected'] = rejected_rewards.detach().cpu().numpy().tolist()
-    # metrics[f'rewards_{train_test}/accuracies'] = reward_accuracies.detach().cpu().numpy().tolist()
-    # metrics[f'rewards_{train_test}/margins'] = (chosen_rewards - rejected_rewards).detach().cpu().numpy().tolist()
-    # metrics[f'logps_{train_test}/rejected'] = policy_rejected_logps.detach().cpu().numpy().tolist()    
-    # metrics[f'logps_{train_test}/chosen'] = policy_chosen_logps.detach().cpu().numpy().tolist()
-    # metrics[f'loss/{train_test}'] = losses.detach().cpu().numpy().tolist()
+    metrics[f'rewards_{train_test}/chosen'] = chosen_rewards.detach().cpu().numpy().tolist()
+    metrics[f'rewards_{train_test}/rejected'] = rejected_rewards.detach().cpu().numpy().tolist()
+    metrics[f'rewards_{train_test}/accuracies'] = reward_accuracies.detach().cpu().numpy().tolist()
+    metrics[f'rewards_{train_test}/margins'] = (chosen_rewards - rejected_rewards).detach().cpu().numpy().tolist()
+    metrics[f'logps_{train_test}/rejected'] = policy_rejected_logps.detach().cpu().numpy().tolist()    
+    metrics[f'logps_{train_test}/chosen'] = policy_chosen_logps.detach().cpu().numpy().tolist()
+    metrics[f'loss/{train_test}'] = losses.detach().cpu().numpy().tolist()
 
     return losses.mean(), metrics
 
