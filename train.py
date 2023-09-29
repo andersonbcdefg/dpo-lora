@@ -22,6 +22,7 @@ def train(
     quantization: Literal["4bit", "8bit", None] = None,
     batch_size: int = 16,
     accum_steps: int = 1,
+    lr: float = 2.0e-5,
     num_workers: int = 4,
 ):
 
@@ -47,7 +48,7 @@ def train(
 
     # get optimizer
     optimizer = get_optimizer_for_model(
-        model, model_name, max_lr=2.0e-5
+        model, model_name, max_lr=lr
     )
 
     # train -- uh oh what do????
