@@ -61,9 +61,12 @@ def train(
   
     for i, batch in enumerate(dataloader):
         loss, metrics = forward_batch(model, batch, device, loss_fn=loss_fn, train=True)
-        print("Loss: ", loss)
         for metric in metrics:
-            writer.add_scalar(metric, np.mean(metrics[metric]), i)
+            # if it's a list take the mean otherwise just log as is
+            if isinstance(metrics[metric], list):
+                writer.add_scalar(metric, np.mean(metrics[metric]), i)
+            else:
+                writer.add_scalar(metric, metrics[metric], i)
         (loss / accum_steps).backward()
 
         if (i + 1) % accum_steps == 0:
