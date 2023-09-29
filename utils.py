@@ -132,7 +132,7 @@ def forward_batch(model, batch, device, loss_fn="dpo", train=True):
         metrics[f'rewards_{train_test}/margins'] = (chosen_rewards - rejected_rewards).detach().cpu().numpy().tolist()
         metrics[f'logps_{train_test}/rejected'] = policy_rejected_logps.detach().cpu().numpy().tolist()    
         metrics[f'logps_{train_test}/chosen'] = policy_chosen_logps.detach().cpu().numpy().tolist()
-        metrics[f'loss/{train_test}'] = losses.detach().cpu().numpy().tolist()
+        metrics[f'dpo_loss/{train_test}'] = losses.detach().cpu().numpy().tolist()
 
         return losses.mean(), metrics
     
@@ -145,7 +145,7 @@ def forward_batch(model, batch, device, loss_fn="dpo", train=True):
             labels=batch['chosen_labels'].to(device),
         ).loss
 
-        metrics[f'loss/{train_test}'] = loss.detach().cpu().numpy().tolist()
+        metrics[f'sft_loss/{train_test}'] = loss.detach().cpu().numpy().tolist()
         return loss, metrics
     
     else:

@@ -61,6 +61,7 @@ def train(
   
     for i, batch in enumerate(dataloader):
         loss, metrics = forward_batch(model, batch, device, loss_fn=loss_fn, train=True)
+        print("Loss: ", loss)
         for metric in metrics:
             writer.add_scalar(metric, np.mean(metrics[metric]), i)
         (loss / accum_steps).backward()
