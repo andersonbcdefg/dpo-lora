@@ -107,18 +107,18 @@ def concatenated_forward(
         chosen_logps, rejected_logps = all_logps.chunk(2, dim=0)
         return chosen_logps, rejected_logps
 
-def forward_batch(model, batch, train=True):
+def forward_batch(model, batch, device, train=True):
     metrics = {}
     train_test = 'train' if train else 'eval'
 
     # turn on LoRA to get the reference model activations
     model.enable_adapters()
-    policy_chosen_logps, policy_rejected_logps = concatenated_forward(model, batch)
+    policy_chosen_logps, policy_rejected_logps = concatenated_forward(model, batch, device)
 
     # turn off LoRA to get the reference model activations. no gradients here.
     model.disable_adapters()
     with torch.no_grad():
-        reference_chosen_logps, reference_rejected_logps = concatenated_forward(model, batch)
+        reference_chosen_logps, reference_rejected_logps = concatenated_forward(model, batch, device)
     
     losses, chosen_rewards, rejected_rewards = dpo_loss(
         policy_chosen_logps, policy_rejected_logps, reference_chosen_logps, reference_rejected_logps, beta=0.1, reference_free=False)
