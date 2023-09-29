@@ -18,6 +18,8 @@ def train(
     model_name: str,
     datasets: Union[str, list[str]], # path to dataset(s) on huggingface. must have (prompt, chosen, rejected)
     quantization: Literal["4bit", "8bit", None] = None,
+    batch_size: int = 16,
+    num_workers: int = 4,
 ):
 
     # get LoRA model
@@ -36,8 +38,8 @@ def train(
     dataloader = get_dataloader(
         dataset_names=datasets,
         tokenizer=tokenizer,
-        batch_size=16,
-        num_workers=4,
+        batch_size=batch_size,
+        num_workers=num_workers,
     )
 
     # get optimizer
