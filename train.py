@@ -2,6 +2,7 @@ import fire
 import torch
 from typing import Literal, Union
 from transformers import AutoModelForCausalLM
+import numpy as np
 from utils import (
     print_trainable_parameters,
     forward_batch
@@ -19,6 +20,7 @@ def train(
     datasets: Union[str, list[str]], # path to dataset(s) on huggingface. must have (prompt, chosen, rejected)
     quantization: Literal["4bit", "8bit", None] = None,
     batch_size: int = 16,
+    accum_steps: int = 1,
     num_workers: int = 4,
 ):
 
@@ -53,17 +55,17 @@ def train(
     if device == torch.device("cpu"):
         model = model.float()
     model.to(device)
-        
-    for batch in dataloader:
+  
+    for i, batch in enumerate(dataloader):
         loss, metrics = forward_batch(model, batch, device)
-        print("Loss: ", loss)
-        print("Reward Accuracy: ", metrics["rewards_train/accuracies"])
+        print("Loss: ", loss.item(), "; Reward Acc: ", np.mean(metrics["rewards_train/accuracies"]))
         # print("Logps chosen: ", metrics["logps_train/chosen"])
         # print("Logps rejected: ", metrics["logps_train/rejected"])
-        
-        loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
+        (loss / accum_steps).backward()
+
+        if (i + 1) % accum_steps == 0:
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
     
 if __name__ == "__main__":
     fire.Fire(train)
