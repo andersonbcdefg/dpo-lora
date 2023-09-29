@@ -12,8 +12,9 @@ from models import (
     get_model_and_tokenizer,
     get_optimizer_for_model
 )
-# automatic mixed precision
-from torch.cuda.amp import GradScaler, autocast
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
+
 
 def train(
     model_name: str,
@@ -58,9 +59,8 @@ def train(
   
     for i, batch in enumerate(dataloader):
         loss, metrics = forward_batch(model, batch, device)
-        print("Loss: ", loss.item(), "; Reward Acc: ", np.mean(metrics["rewards_train/accuracies"]))
-        # print("Logps chosen: ", metrics["logps_train/chosen"])
-        # print("Logps rejected: ", metrics["logps_train/rejected"])
+        for metric in metrics:
+            writer.add_scalar(metric, np.mean(metrics[metric]), i)
         (loss / accum_steps).backward()
 
         if (i + 1) % accum_steps == 0:
