@@ -107,33 +107,50 @@ def concatenated_forward(
         chosen_logps, rejected_logps = all_logps.chunk(2, dim=0)
         return chosen_logps, rejected_logps
 
-def forward_batch(model, batch, device, train=True):
+def forward_batch(model, batch, device, loss="dpo", train=True):
     metrics = {}
     train_test = 'train' if train else 'eval'
 
-    # turn on LoRA to get the reference model activations
-    model.enable_adapters()
-    policy_chosen_logps, policy_rejected_logps = concatenated_forward(model, batch, device)
+    if loss == "dpo":
+        # turn on LoRA to get the reference model activations
+        model.enable_adapters()
+        policy_chosen_logps, policy_rejected_logps = concatenated_forward(model, batch, device)
 
-    # turn off LoRA to get the reference model activations. no gradients here.
-    model.disable_adapters()
-    with torch.no_grad():
-        reference_chosen_logps, reference_rejected_logps = concatenated_forward(model, batch, device)
+        # turn off LoRA to get the reference model activations. no gradients here.
+        model.disable_adapters()
+        with torch.no_grad():
+            reference_chosen_logps, reference_rejected_logps = concatenated_forward(model, batch, device)
+        
+        losses, chosen_rewards, rejected_rewards = dpo_loss(
+            policy_chosen_logps, policy_rejected_logps, reference_chosen_logps, reference_rejected_logps, beta=0.1, reference_free=False)
+        reward_accuracies = (chosen_rewards > rejected_rewards).float()
+
+        # i removed all_gather_if_needed from all of these. will have to add back if doing FSDP/etc.
+        metrics[f'rewards_{train_test}/chosen'] = chosen_rewards.detach().cpu().numpy().tolist()
+        metrics[f'rewards_{train_test}/rejected'] = rejected_rewards.detach().cpu().numpy().tolist()
+        metrics[f'rewards_{train_test}/accuracies'] = reward_accuracies.detach().cpu().numpy().tolist()
+        metrics[f'rewards_{train_test}/margins'] = (chosen_rewards - rejected_rewards).detach().cpu().numpy().tolist()
+        metrics[f'logps_{train_test}/rejected'] = policy_rejected_logps.detach().cpu().numpy().tolist()    
+        metrics[f'logps_{train_test}/chosen'] = policy_chosen_logps.detach().cpu().numpy().tolist()
+        metrics[f'loss/{train_test}'] = losses.detach().cpu().numpy().tolist()
+
+        return losses.mean(), metrics
     
-    losses, chosen_rewards, rejected_rewards = dpo_loss(
-        policy_chosen_logps, policy_rejected_logps, reference_chosen_logps, reference_rejected_logps, beta=0.1, reference_free=False)
-    reward_accuracies = (chosen_rewards > rejected_rewards).float()
+    # finetune only on the 'chosen' responses
+    elif loss == "sft":
+        model.enable_adapters()
+        loss = model(
+            input_ids=batch['chosen_input_ids'].to(device),
+            attention_mask=batch['chosen_attention_mask'].to(device),
+            labels=batch['chosen_labels'].to(device),
+        ).loss
 
-    # i removed all_gather_if_needed from all of these. will have to add back if doing FSDP/etc.
-    metrics[f'rewards_{train_test}/chosen'] = chosen_rewards.detach().cpu().numpy().tolist()
-    metrics[f'rewards_{train_test}/rejected'] = rejected_rewards.detach().cpu().numpy().tolist()
-    metrics[f'rewards_{train_test}/accuracies'] = reward_accuracies.detach().cpu().numpy().tolist()
-    metrics[f'rewards_{train_test}/margins'] = (chosen_rewards - rejected_rewards).detach().cpu().numpy().tolist()
-    metrics[f'logps_{train_test}/rejected'] = policy_rejected_logps.detach().cpu().numpy().tolist()    
-    metrics[f'logps_{train_test}/chosen'] = policy_chosen_logps.detach().cpu().numpy().tolist()
-    metrics[f'loss/{train_test}'] = losses.detach().cpu().numpy().tolist()
+        metrics[f'loss/{train_test}'] = loss.detach().cpu().numpy().tolist()
+        return loss, metrics
+    
+    else:
+        raise ValueError(f"Unknown loss function: {loss}")
 
-    return losses.mean(), metrics
 
 class TemporarilySeededRandom:
     def __init__(self, seed):

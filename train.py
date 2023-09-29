@@ -20,6 +20,7 @@ def train(
     model_name: str,
     datasets: Union[str, list[str]], # path to dataset(s) on huggingface. must have (prompt, chosen, rejected)
     quantization: Literal["4bit", "8bit", None] = None,
+    loss: Literal["dpo", "sft"] = "dpo",
     batch_size: int = 16,
     accum_steps: int = 1,
     lr: float = 2.0e-5,
@@ -59,7 +60,7 @@ def train(
     model.to(device)
   
     for i, batch in enumerate(dataloader):
-        loss, metrics = forward_batch(model, batch, device)
+        loss, metrics = forward_batch(model, batch, device, loss=loss, train=True)
         for metric in metrics:
             writer.add_scalar(metric, np.mean(metrics[metric]), i)
         (loss / accum_steps).backward()
