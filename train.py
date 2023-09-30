@@ -184,7 +184,7 @@ def train_ddp(
     )
 
     # train -- uh oh what do????
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device(f"cuda:{rank}") if torch.cuda.is_available() else torch.device("cpu")
     # set to float if not on cuda
     if device == torch.device("cpu"):
         model = model.float()
@@ -218,7 +218,7 @@ def train_ddp(
                 optimizer.zero_grad(set_to_none=True)
 
                 # only log on rank 0 every optimizer step
-                loss_tensor = torch.tensor(running_losses)
+                loss_tensor = torch.tensor(running_losses).to(device)
                 torch.distributed.all_reduce(loss_tensor)
 
                 if rank == 0:
@@ -227,7 +227,7 @@ def train_ddp(
                 running_losses = []
 
                 for metric, values in running_metrics.items():
-                    metric_tensor = torch.tensor(values)
+                    metric_tensor = torch.tensor(values).to(device)
                     torch.distributed.all_reduce(metric_tensor)
                     if rank == 0:
                         avg = metric_tensor.mean().item() / world_size
