@@ -47,8 +47,6 @@ def get_model_and_tokenizer(
     load_in_8bit=False,
     lora=False,
     lora_ckpt=None,
-    classification_label_to_id=None,
-    multilabel_classification=False,
 ):  
     model_type = "CausalLM"
     if model_type not in ["CausalLM", "Seq2SeqLM", "Classification"]:

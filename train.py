@@ -57,7 +57,9 @@ def train(
     # set to float if not on cuda
     if device == torch.device("cpu"):
         model = model.float()
-    model.to(device)
+    if quantization not in ["4bit", "8bit"]:
+        # if using bitsandbytes the model will already be on the right device
+        model.to(device)
   
     for i, batch in enumerate(dataloader):
         loss, metrics = forward_batch(model, batch, device, loss_fn=loss_fn, train=True)
