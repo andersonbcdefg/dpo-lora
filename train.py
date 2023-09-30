@@ -81,21 +81,36 @@ def train(
 
     # train loop
     model.train()
+    running_losses = []
+    running_metrics = {}
     for epoch in range(num_epochs):
         print(f"=== Epoch {epoch} ===")
         for i, batch in enumerate(dataloader):
             loss, metrics = forward_batch(model, batch, device, loss_fn=loss_fn, train=True)
+            running_losses.append(loss.item())
             for metric in metrics:
-                # if it's a list take the mean otherwise just log as is
-                if isinstance(metrics[metric], list):
-                    writer.add_scalar(metric, np.mean(metrics[metric]), i)
+                if metric not in running_metrics:
+                    running_metrics[metric] = []
+                if isinstance(metrics[metric], list): 
+                    running_metrics[metric].extend(metrics[metric])
                 else:
-                    writer.add_scalar(metric, metrics[metric], i)
+                    running_metrics[metric].append(metrics[metric])
             (loss / accum_steps).backward()
 
             if (i + 1) % accum_steps == 0:
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
+
+                # log the running stuff every optimizer step
+                avg_loss = np.mean(running_losses)
+                writer.add_scalar("loss", avg_loss, i)
+                running_losses = []
+
+                for metric in running_metrics:
+                    avg = np.mean(running_metrics[metric])
+                    writer.add_scalar(metric, avg, i)
+                running_metrics = {}
+
 
         # save model at the end
         model.save_pretrained(save_dir + f"_epoch_{epoch + 1}")
@@ -178,23 +193,46 @@ def train_ddp(
 
     # train loop
     model.train()
+    running_losses = []
+    running_metrics = {}
     for epoch in range(num_epochs):
         dataloader.sampler.set_epoch(epoch)
         print(f"=== Epoch {epoch} ===")
         for i, batch in enumerate(dataloader):
             with model.no_sync() if (i + 1) % accum_steps != 0 else nullcontext():
                 loss, metrics = forward_batch(model, batch, device, loss_fn=loss_fn, train=True)
+                running_losses.append(loss.item())
                 for metric in metrics:
-                    # if it's a list take the mean otherwise just log as is
-                    if isinstance(metrics[metric], list):
-                        writer.add_scalar(metric, np.mean(metrics[metric]), i)
+                    if metric not in running_metrics:
+                        running_metrics[metric] = []
+                    if isinstance(metrics[metric], list): 
+                        running_metrics[metric].extend(metrics[metric])
                     else:
-                        writer.add_scalar(metric, metrics[metric], i)
+                        running_metrics[metric].append(metrics[metric])
                 (loss / accum_steps).backward()
 
             if (i + 1) % accum_steps == 0:
                 optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
+
+                # only log on rank 0 every optimizer step
+                loss_tensor = torch.tensor(running_losses)
+                torch.distributed.all_reduce(loss_tensor)
+
+                if rank == 0:
+                    avg_loss = loss_tensor.mean().item() / world_size
+                    writer.add_scalar("loss", avg_loss, i)
+                running_losses = []
+
+                for metric, values in running_metrics.items():
+                    metric_tensor = torch.tensor(values)
+                    torch.distributed.all_reduce(metric_tensor)
+                    if rank == 0:
+                        avg = metric_tensor.mean().item() / world_size
+                        writer.add_scalar(metric, avg, i)
+                
+                running_metrics = {}
+
 
         # save model at the end, but only rank 0
         if torch.distributed.get_rank() == 0:
