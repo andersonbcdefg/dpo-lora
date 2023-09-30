@@ -2,6 +2,7 @@ from logger import logger
 
 import fire
 import torch
+import torch.nn as nn
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
@@ -9,13 +10,81 @@ from transformers import (
     BitsAndBytesConfig
 )
 from peft import PeftModel, LoraConfig, prepare_model_for_kbit_training, TaskType
-from utils import print_trainable_parameters
+from utils import (
+    print_trainable_parameters,
+    _get_batch_logps,
+    dpo_loss,
+)
 from transformers.optimization import Adafactor
 from torch.optim import AdamW
 
 # from config import TrainingConfig
 
 from registry import MODEL_REGISTRY, LORA_MODULES
+
+class DPOModel(nn.Module):
+    def __init__(self, model: nn.Module, device: torch.device):
+        super().__init__()
+        self.model = model
+        self.device = device
+
+    def forward(
+        self, 
+        batch,
+        loss_fn="dpo", 
+        train=True, 
+    ):
+        metrics = {}
+        train_test = 'train' if train else 'eval'
+
+        if loss_fn == "dpo":
+            concatenated_batch = {
+                "input_ids": torch.cat([batch['chosen_input_ids'], batch['rejected_input_ids']], dim=0).to(self.device),
+                "attention_mask": torch.cat([batch['chosen_attention_mask'], batch['rejected_attention_mask']], dim=0).to(self.device),
+                "labels": torch.cat([batch['chosen_labels'], batch['rejected_labels']], dim=0).to(self.device),
+            }
+            # turn on LoRA to get the reference model activations
+            self.model.enable_adapters()
+            all_logits = self.model(concatenated_batch['input_ids'], attention_mask=concatenated_batch['attention_mask']).logits.to(torch.float32)
+            all_logps = _get_batch_logps(all_logits, concatenated_batch['labels'], average_log_prob=False)
+            policy_chosen_logps, policy_rejected_logps = all_logps.chunk(2, dim=0)
+
+            # turn off LoRA to get the reference model activations. no gradients here.
+            self.model.disable_adapters()
+            with torch.no_grad():
+                all_logits = self.model(concatenated_batch['input_ids'], attention_mask=concatenated_batch['attention_mask']).logits.to(torch.float32)
+                all_logps = _get_batch_logps(all_logits, concatenated_batch['labels'], average_log_prob=False)
+                reference_chosen_logps, reference_rejected_logps = all_logps.chunk(2, dim=0)
+            
+            losses, chosen_rewards, rejected_rewards = dpo_loss(
+                policy_chosen_logps, policy_rejected_logps, reference_chosen_logps, reference_rejected_logps, beta=0.1, reference_free=False)
+            reward_accuracies = (chosen_rewards > rejected_rewards).float()
+
+            # i removed all_gather_if_needed from all of these. will have to add back if doing FSDP/etc.
+            metrics[f'rewards_{train_test}/chosen'] = chosen_rewards.detach().cpu().numpy().tolist()
+            metrics[f'rewards_{train_test}/rejected'] = rejected_rewards.detach().cpu().numpy().tolist()
+            metrics[f'rewards_{train_test}/accuracies'] = reward_accuracies.detach().cpu().numpy().tolist()
+            metrics[f'rewards_{train_test}/margins'] = (chosen_rewards - rejected_rewards).detach().cpu().numpy().tolist()
+            metrics[f'logps_{train_test}/rejected'] = policy_rejected_logps.detach().cpu().numpy().tolist()    
+            metrics[f'logps_{train_test}/chosen'] = policy_chosen_logps.detach().cpu().numpy().tolist()
+            metrics[f'dpo_loss/{train_test}'] = losses.detach().cpu().numpy().tolist()
+
+            return losses.mean(), metrics
+        
+        # finetune only on the 'chosen' responses
+        elif loss_fn == "sft":
+            loss = self.model(
+                input_ids=batch['chosen_input_ids'].to(self.device),
+                attention_mask=batch['chosen_attention_mask'].to(self.device),
+                labels=batch['chosen_labels'].to(self.device),
+            ).loss
+
+            metrics[f'sft_loss/{train_test}'] = loss.detach().cpu().numpy().tolist()
+            return loss, metrics
+        
+        else:
+            raise ValueError(f"Unknown loss function: {loss_fn}")
+
 
 def get_quantization_config(load_in_4bit=False, load_in_8bit=False):
     if not (load_in_4bit or load_in_8bit):
@@ -143,6 +212,8 @@ def get_model_and_tokenizer(
                 p.requires_grad = True
     use_fast_tokenizer = model_config["fast_tokenizer"]
     tokenizer = AutoTokenizer.from_pretrained(model_config["path"], trust_remote_code=True, use_fast=use_fast_tokenizer)
+    model_device = next(model.parameters()).device
+    model = DPOModel(model, model_device)
     return model, tokenizer
 
 def get_optimizer_for_model(model, model_name, max_lr=None):

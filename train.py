@@ -86,7 +86,7 @@ def train(
     for epoch in range(num_epochs):
         print(f"=== Epoch {epoch} ===")
         for i, batch in enumerate(dataloader):
-            loss, metrics = forward_batch(model, batch, device, loss_fn=loss_fn, train=True)
+            loss, metrics = model(batch, loss_fn=loss_fn, train=True)
             running_losses.append(loss.item())
             for metric in metrics:
                 if metric not in running_metrics:
@@ -203,7 +203,7 @@ def train_ddp(
         print(f"=== Epoch {epoch} ===")
         for i, batch in enumerate(dataloader):
             with model.no_sync() if (i + 1) % accum_steps != 0 else nullcontext():
-                loss, metrics = forward_batch(model, batch, device, loss_fn=loss_fn, train=True)
+                loss, metrics = model(batch, loss_fn=loss_fn, train=True)
                 running_losses.append(loss.item())
                 for metric in metrics:
                     if metric not in running_metrics:
