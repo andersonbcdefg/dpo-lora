@@ -173,7 +173,7 @@ def train_ddp(
         tokenizer=tokenizer,
         batch_size=batch_size,
         num_workers=num_workers,
-        distributed=False,
+        distributed=True,
     )
 
     # get optimizer
