@@ -112,6 +112,16 @@ MODEL_REGISTRY = {
         "n_layers": 32,
         "fast_tokenizer": False,
     },
+    "Mistral-7B": {
+        "name": "Mistral-7B",
+        "type": "CausalLM",
+        "family": "Mistral",
+        "path": "mistralai/Mistral-7B-v0.1",
+        "sequence_length": 8192,
+        "n_params": 7 * BILLION,
+        "n_layers": 32,
+        "fast_tokenizer": True,
+    },
     "Llama2-13B": {
         "name": "Llama2-13B",
         "type": "CausalLM",
@@ -177,6 +187,7 @@ MODEL_REGISTRY = {
 LORA_MODULES = {
     "GPTNeoX": ["query_key_value", "dense", "dense_h_to_4h", "dense_4h_to_h"],
     "Llama": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "down_proj", "up_proj"],
+    "Mistral": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "down_proj", "up_proj"],
     "CodeGen": ["qkv_proj", "out_proj", "fc_in", "fc_out"],
     "MPT": ["Wqkv", "out_proj", "up_proj", "down_proj"],
     "GPTBigCode": ["c_attn", "c_proj", "c_fc", "c_proj"],

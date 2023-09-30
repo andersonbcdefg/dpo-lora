@@ -105,38 +105,16 @@ def get_model_and_tokenizer(
     if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
         logger.info("CUDA is available and supports BF16, using BF16.")
         use_bf16 = True
-    if model_type == "CausalLM":
-        model = AutoModelForCausalLM.from_pretrained(
-            model_config["path"], 
-            trust_remote_code=True,
-            config=auto_config,
-            quantization_config=quantization_config,
-            torch_dtype=torch.bfloat16 if use_bf16 else torch.float16,
-            device_map="auto",
-            offload_folder="./offload"
-        )
-    elif model_type == "Seq2SeqLM":
-        model = AutoModelForSeq2SeqLM.from_pretrained(
-            model_config["path"],
-            config=auto_config,
-            quantization_config=quantization_config,
-            torch_dtype=torch.bfloat16 if use_bf16 else torch.float16,
-            device_map="auto",
-            offload_folder="./offload"
-        )
-    elif model_type == "Classification":
-        if classification_label_to_id is None:
-            raise ValueError("Classification models require the number of classes to be specified.")
-        auto_config.num_labels = len(classification_label_to_id)
-        auto_config.label2id = classification_label_to_id
-        auto_config.id2label = {v: k for k, v in classification_label_to_id.items()}
-        auto_config.problem_type = "single_label_classification" if not multilabel_classification else "multi_label_classification"
-        model = AutoModelForSequenceClassification.from_pretrained(
-            model_config["path"],
-            config=auto_config,
-            torch_dtype=torch.bfloat16 if use_bf16 else torch.float16,
-            ignore_mismatched_sizes=True,
-        )
+    model = AutoModelForCausalLM.from_pretrained(
+        model_config["path"], 
+        trust_remote_code=True,
+        config=auto_config,
+        quantization_config=quantization_config,
+        torch_dtype=torch.bfloat16 if use_bf16 else torch.float16,
+        device_map="auto",
+        offload_folder="./offload"
+    )
+
     if gradient_checkpointing:
         logger.info("Enabling gradient checkpointing.")
         try:
@@ -151,6 +129,9 @@ def get_model_and_tokenizer(
     if lora and not lora_ckpt:
         model.add_adapter(lora_config)
         print_trainable_parameters(model)
+
+    elif lora and lora_ckpt:
+        model.load_adapter(lora_ckpt)
 
     elif lora and lora_ckpt:
         model = PeftModel.from_pretrained(
