@@ -24,7 +24,7 @@ def init_distributed(rank: int):
         backend='nccl',
         init_method='env://'
     )
-    torch.cuda.set_device(rank)
+    torch.cuda.set_device(f"cuda:{rank}")
 
     # return world size
     torch.distributed.get_world_size()
