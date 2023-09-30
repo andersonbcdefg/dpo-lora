@@ -1,3 +1,4 @@
+import os
 import fire
 import torch
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -18,15 +19,15 @@ from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter()
 
 
-def init_distributed():
+def init_distributed(rank: int):
     torch.distributed.init_process_group(
         backend='nccl',
         init_method='env://'
     )
-    torch.cuda.set_device(torch.distributed.get_local_rank())
+    torch.cuda.set_device(rank)
 
-    # return rank
-    return torch.distributed.get_rank(), torch.distributed.get_world_size()
+    # return world size
+    torch.distributed.get_world_size()
 
 def train(
     model_name: str,
@@ -110,9 +111,15 @@ def train_ddp(
     lr: float = 2.0e-5,
     num_workers: int = 4,
     save_dir: str = "checkpoint-final",
+    rank: int = None,
 ):
     # initialize distributed
-    rank, world_size = init_distributed()
+    if rank is None:
+        rank = os.environ.get("RANK", None)
+        if rank is None:
+            raise ValueError("Couldn't get rank.")
+    print(f"Hello from device {rank}!")
+    world_size = init_distributed(rank)
     assert world_size > 1, "Must have more than one GPU to use DDP"
     assert accum_iters % world_size == 0, "Accumulation steps must be divisible by world size"
     accum_iters = accum_iters // world_size # we want total accumulation steps to be the same no matter hardware
