@@ -164,6 +164,9 @@ def train_ddp(
             lora_ckpt=None,
             device=f"cuda:{rank}",
         )
+
+    # wrap model in DDP
+    model = DDP(model, device_ids=[rank], find_unused_parameters=True)
     
 
     # get train dataloader
