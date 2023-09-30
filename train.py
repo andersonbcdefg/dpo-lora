@@ -181,4 +181,4 @@ def train_ddp(
     
     
 if __name__ == "__main__":
-    fire.Fire(train)
+    fire.Fire()
