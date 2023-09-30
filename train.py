@@ -25,6 +25,7 @@ def train(
     accum_steps: int = 1,
     lr: float = 2.0e-5,
     num_workers: int = 4,
+    save_dir: str = "checkpoint-final",
 ):
 
     # get LoRA model
@@ -74,6 +75,9 @@ def train(
         if (i + 1) % accum_steps == 0:
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
+
+    # save model at the end
+    model.save_pretrained(save_dir)
     
 if __name__ == "__main__":
     fire.Fire(train)
