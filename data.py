@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader, Dataset
 from transformers import AutoTokenizer
 # from utils import get_local_dir, TemporarilySeededRandom
 # from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data.distributed import DistributedSampler
 
 import tqdm
 import random
@@ -124,6 +125,7 @@ def get_dataloader(
     min_prompt_length: int = 128,
     silent: bool = False,
     seed:int = 42,
+    distributed: bool = False,
 ):
     """Get an iterator over batches of data. Stops after n_epochs or n_examples, whichever comes first.
 
@@ -157,10 +159,11 @@ def get_dataloader(
     dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=shuffle,
+        shuffle=shuffle if not distributed else False,
         num_workers=num_workers,
         collate_fn=DefaultDataCollator(),
         pin_memory=True,
+        sampler=DistributedSampler(dataset) if distributed else None,
     )
     
     return dataloader

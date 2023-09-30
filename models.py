@@ -5,17 +5,15 @@ import torch
 from transformers import (
     AutoConfig,
     AutoModelForCausalLM,
-    AutoModelForSeq2SeqLM,
-    AutoModelForSequenceClassification,
     AutoTokenizer,
     BitsAndBytesConfig
 )
-from peft import PeftModel, LoraConfig, get_peft_model, prepare_model_for_kbit_training, TaskType
+from peft import PeftModel, LoraConfig, prepare_model_for_kbit_training, TaskType
 from utils import print_trainable_parameters
 from transformers.optimization import Adafactor
 from torch.optim import AdamW
 
-from config import TrainingConfig
+# from config import TrainingConfig
 
 from registry import MODEL_REGISTRY, LORA_MODULES
 
@@ -47,6 +45,7 @@ def get_model_and_tokenizer(
     load_in_8bit=False,
     lora=False,
     lora_ckpt=None,
+    device=None,
 ):  
     model_type = "CausalLM"
     if model_type not in ["CausalLM", "Seq2SeqLM", "Classification"]:
@@ -109,7 +108,7 @@ def get_model_and_tokenizer(
         config=auto_config,
         quantization_config=quantization_config,
         torch_dtype=torch.bfloat16 if use_bf16 else torch.float16,
-        device_map="auto",
+        device_map="auto" if device is None else device,
         offload_folder="./offload"
     )
 
