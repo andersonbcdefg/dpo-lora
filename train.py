@@ -124,16 +124,32 @@ def train_ddp(
     assert accum_steps % world_size == 0, "Accumulation steps must be divisible by world size"
     accum_steps = accum_steps // world_size # we want total accumulation steps to be the same no matter hardware
 
-    # get LoRA model
-    model, tokenizer = get_model_and_tokenizer(
-        model_name=model_name,
-        gradient_checkpointing=True,
-        load_in_4bit=(quantization == "4bit"),
-        load_in_8bit=(quantization == "8bit"),
-        lora=True,
-        lora_ckpt=None,
-        device=f"cuda:{rank}",
-    )
+    # get LoRA model. do this on rank 0 first.
+    if rank == 0:
+        # Download model weights
+        print("Downloading model weights on rank 0")
+        model, tokenizer = get_model_and_tokenizer(
+            model_name=model_name,
+            gradient_checkpointing=True,
+            load_in_4bit=(quantization == "4bit"),
+            load_in_8bit=(quantization == "8bit"),
+            lora=True,
+            lora_ckpt=None,
+            device=f"cuda:{rank}",
+        )
+        print("Done downloading model weights on rank 0")
+    torch.distributed.barrier() # wait for rank 0 to finish downloading
+    if rank != 0:
+        model, tokenizer = get_model_and_tokenizer(
+            model_name=model_name,
+            gradient_checkpointing=True,
+            load_in_4bit=(quantization == "4bit"),
+            load_in_8bit=(quantization == "8bit"),
+            lora=True,
+            lora_ckpt=None,
+            device=f"cuda:{rank}",
+        )
+    
 
     # get train dataloader
     datasets = [datasets] if isinstance(datasets, str) else datasets
