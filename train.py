@@ -8,7 +8,6 @@ import numpy as np
 from contextlib import nullcontext
 from utils import (
     print_trainable_parameters,
-    forward_batch
 )
 from data import get_dataloader
 from models import (
