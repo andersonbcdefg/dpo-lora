@@ -27,7 +27,7 @@ def init_distributed(rank: int):
     torch.cuda.set_device(f"cuda:{rank}")
 
     # return world size
-    torch.distributed.get_world_size()
+    return torch.distributed.get_world_size()
 
 def train(
     model_name: str,
