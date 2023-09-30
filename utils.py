@@ -107,17 +107,23 @@ def concatenated_forward(
         chosen_logps, rejected_logps = all_logps.chunk(2, dim=0)
         return chosen_logps, rejected_logps
 
-def forward_batch(model, batch, device, loss_fn="dpo", train=True):
+def forward_batch(model, batch, device, loss_fn="dpo", train=True, distributed=False):
     metrics = {}
     train_test = 'train' if train else 'eval'
 
     if loss_fn == "dpo":
         # turn on LoRA to get the reference model activations
-        model.enable_adapters()
+        if distributed:
+            model.module.enable_adapters()
+        else:
+            model.enable_adapters()
         policy_chosen_logps, policy_rejected_logps = concatenated_forward(model, batch, device)
 
         # turn off LoRA to get the reference model activations. no gradients here.
-        model.disable_adapters()
+        if distributed:
+            model.module.disable_adapters()
+        else:
+            model.disable_adapters()
         with torch.no_grad():
             reference_chosen_logps, reference_rejected_logps = concatenated_forward(model, batch, device)
         
@@ -138,7 +144,6 @@ def forward_batch(model, batch, device, loss_fn="dpo", train=True):
     
     # finetune only on the 'chosen' responses
     elif loss_fn == "sft":
-        model.enable_adapters()
         loss = model(
             input_ids=batch['chosen_input_ids'].to(device),
             attention_mask=batch['chosen_attention_mask'].to(device),

@@ -239,7 +239,7 @@ def train_ddp(
 
         # save model at the end, but only rank 0
         if torch.distributed.get_rank() == 0:
-            model.save_pretrained(save_dir + f"_epoch_{epoch + 1}")
+            model.module.save_pretrained(save_dir + f"_epoch_{epoch + 1}")
 
     
     
