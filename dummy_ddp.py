@@ -8,7 +8,7 @@ if __name__ == "__main__":
     world_size = int(os.environ["WORLD_SIZE"])
     torch.distributed.init_process_group(
         backend='nccl',
-        init_method='tcp://localhost:12345',
+        init_method='gloo://',
         rank=local_rank,
         world_size=world_size
     )
