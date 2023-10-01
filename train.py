@@ -211,6 +211,7 @@ def train_ddp(
                         running_metrics[metric].extend(metrics[metric])
                     else:
                         running_metrics[metric].append(metrics[metric])
+                print("about to backward...")
                 (loss / accum_steps).backward()
 
             if (i + 1) % accum_steps == 0:
