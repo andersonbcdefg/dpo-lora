@@ -5,7 +5,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 if __name__ == "__main__":
     torch.distributed.init_process_group(
         backend='nccl',
-        init_method='env://'
+        init_method='tcp://localhost:12345'
     )
     rank = torch.distributed.get_rank()
     torch.cuda.set_device(f"cuda:{rank}")
