@@ -128,18 +128,16 @@ def train_ddp(
     rank: int = None,
 ):
     # initialize distributed
+    print("Environment world size: ", os.environ.get("WORLD_SIZE", None))
     if rank is None:
         rank = int(os.environ.get("LOCAL_RANK", None))
         if rank is None:
             raise ValueError("Couldn't get rank.")
     print(f"Hello from device {rank}!")
     world_size = init_distributed(rank)
-    # assert world_size > 1, "Must have more than one GPU to use DDP"
-    # assert accum_steps % world_size == 0, "Accumulation steps must be divisible by world size"
-    # accum_steps = accum_steps // world_size # we want total accumulation steps to be the same no matter hardware
-    print(f"World size: {world_size}")
-    print(torch.distributed.world_size())
-    return
+    assert world_size > 1, "Must have more than one GPU to use DDP"
+    assert accum_steps % world_size == 0, "Accumulation steps must be divisible by world size"
+    accum_steps = accum_steps // world_size # we want total accumulation steps to be the same no matter hardware
 
     # get LoRA model. do this on rank 0 first.
     if rank == 0:
