@@ -18,8 +18,9 @@ class ToyModel(nn.Module):
 
 def demo_basic():
     dist.init_process_group("nccl")
+    world_size = dist.get_world_size()
     rank = dist.get_rank()
-    print(f"Start running basic DDP example on rank {rank}.")
+    print(f"Start running basic DDP example on rank {rank}, world size {world_size}.")
 
     # create model and move it to GPU with id rank
     device_id = rank % torch.cuda.device_count()
