@@ -129,7 +129,7 @@ def train_ddp(
 ):
     # initialize distributed
     if rank is None:
-        rank = int(os.environ.get("RANK", None))
+        rank = int(os.environ.get("LOCAL_RANK", None))
         if rank is None:
             raise ValueError("Couldn't get rank.")
     print(f"Hello from device {rank}!")
