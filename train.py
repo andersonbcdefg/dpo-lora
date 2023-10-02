@@ -161,7 +161,7 @@ def train_ddp(
     if rank != 0:
         model, tokenizer = get_model_and_tokenizer(
             model_name=model_name,
-            gradient_checkpointing=True,
+            gradient_checkpointing=False,
             load_in_4bit=(quantization == "4bit"),
             load_in_8bit=(quantization == "8bit"),
             lora=True,
