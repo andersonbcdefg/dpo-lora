@@ -170,7 +170,7 @@ def train_ddp(
         )
 
     # wrap model in DDP
-    model = DDP(model, device_ids=[rank], find_unused_parameters=True)
+    model = DDP(model, device_ids=[rank], find_unused_parameters=False)
     # model._set_static_graph() # this is necessary for gradient checkpointing to work
 
     # get train dataloader
