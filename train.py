@@ -229,6 +229,8 @@ def train_ddp(
                 if rank == 0:
                     avg_loss = loss_tensor.mean().item() / world_size
                     writer.add_scalar("loss", avg_loss, i)
+                    if i % 100 == 0:
+                        print(f"Step {i} loss: {avg_loss}")
                 running_losses = []
 
                 for metric, values in running_metrics.items():
@@ -239,9 +241,6 @@ def train_ddp(
                         writer.add_scalar(metric, avg, i)
                 
                 running_metrics = {}
-
-            if i % 100 == 0 and rank == 0:
-                print(f"Step {i} loss: {avg_loss}")
 
 
         # save model at the end, but only rank 0
