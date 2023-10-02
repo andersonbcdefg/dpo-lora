@@ -216,7 +216,6 @@ def train_ddp(
                         running_metrics[metric].extend(metrics[metric])
                     else:
                         running_metrics[metric].append(metrics[metric])
-                print("about to backward...")
                 (loss / accum_steps).backward()
 
             if (i + 1) % accum_steps == 0:
@@ -240,6 +239,9 @@ def train_ddp(
                         writer.add_scalar(metric, avg, i)
                 
                 running_metrics = {}
+
+            if i % 100 == 0 and rank == 0:
+                print(f"Step {i} loss: {avg_loss}")
 
 
         # save model at the end, but only rank 0
