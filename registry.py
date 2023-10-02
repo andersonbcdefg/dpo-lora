@@ -72,6 +72,16 @@ MODEL_REGISTRY = {
         "n_layers": 26,
         "fast_tokenizer": False,
     },
+    "StableLM-3B": {
+        "name": "StableLM-3B",
+        "type": "CausalLM",
+        "family": "StableLMEpoch",
+        "path": "stabilityai/stablelm-3b-4e1t",
+        "sequence_length": 2048,
+        "n_params": 3 * BILLION,
+        "n_layers": 32,
+        "fast_tokenizer": True,
+    },
     "XGen-7B": {
         "name": "XGen-7B",
         "type": "CausalLM",
@@ -187,6 +197,7 @@ MODEL_REGISTRY = {
 LORA_MODULES = {
     "GPTNeoX": ["query_key_value", "dense", "dense_h_to_4h", "dense_4h_to_h"],
     "Llama": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "down_proj", "up_proj"],
+    "StableLMEpoch": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "down_proj", "up_proj"],
     "Mistral": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "down_proj", "up_proj"],
     "CodeGen": ["qkv_proj", "out_proj", "fc_in", "fc_out"],
     "MPT": ["Wqkv", "out_proj", "up_proj", "down_proj"],

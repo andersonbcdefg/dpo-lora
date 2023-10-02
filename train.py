@@ -32,6 +32,7 @@ def train(
     model_name: str,
     datasets: Union[str, list[str]], # path to dataset(s) on huggingface. must have (prompt, chosen, rejected)
     num_epochs: int = 1,
+    n_samples: int = None,
     quantization: Literal["4bit", "8bit", None] = None,
     loss_fn: Literal["dpo", "sft"] = "dpo",
     batch_size: int = 16,
@@ -80,13 +81,13 @@ def train(
 
     # train loop
     model.train()
-    running_losses = []
     running_metrics = {}
+    samples_so_far = 0
     for epoch in range(num_epochs):
         print(f"=== Epoch {epoch} ===")
         for i, batch in enumerate(dataloader):
+            samples_so_far += batch["input_ids"].shape[0]
             loss, metrics = model(batch, loss_fn=loss_fn, train=True)
-            running_losses.append(loss.item())
             for metric in metrics:
                 if metric not in running_metrics:
                     running_metrics[metric] = []
@@ -95,24 +96,27 @@ def train(
                 else:
                     running_metrics[metric].append(metrics[metric])
             (loss / accum_steps).backward()
+            
 
             if (i + 1) % accum_steps == 0:
                 optimizer.step()
-                optimizer.zero_grad(set_to_none=True)
+                optimizer.zero_grad()
 
                 # log the running stuff every optimizer step
-                avg_loss = np.mean(running_losses)
-                writer.add_scalar("loss", avg_loss, i)
-                running_losses = []
-
                 for metric in running_metrics:
                     avg = np.mean(running_metrics[metric])
                     writer.add_scalar(metric, avg, i)
                 running_metrics = {}
+            
+            if n_samples is not None and samples_so_far >= n_samples:
+                break
 
-
-        # save model at the end
+        # save model
         model.save_pretrained(save_dir + f"_epoch_{epoch + 1}")
+
+        # break if we've seen enough samples
+        if n_samples is not None and samples_so_far >= n_samples:
+            break
 
 def train_ddp(
     model_name: str,
